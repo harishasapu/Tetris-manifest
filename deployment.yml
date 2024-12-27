@@ -1,34 +1,62 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tetris
+  labels:
+    app: bankapp-deploy
+  name: bankapp-deploy
+  namespace: bankapp-namespace
 spec:
-  replicas: 3
+  replicas: 2  # Keep replicas >= 2 for high availability
   selector:
     matchLabels:
-      app: tetris
+      app: bankapp-deploy
   template:
     metadata:
       labels:
-        app: tetris
+        app: bankapp-deploy
     spec:
       containers:
-      - name: tetris
+      - name: bankapp
         image: harishasapu/bank:latest
         ports:
-        - containerPort: 3000   # Use port 3000
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: tetris-service
-spec:
-  selector:
-    app: tetris
-  ports:
-  - protocol: TCP
-    port: 80                 # Expose port 80
-    targetPort: 3000
-  type: LoadBalancer
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: bankapp-config
+              key: SPRING_DATASOURCE_URL
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: bankapp-config
+              key: SPRING_DATASOURCE_USERNAME
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: bankapp-config
+              key: MYSQL_DATABASE
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: SPRING_DATASOURCE_PASSWORD
+        # readinessProbe:
+        #   httpGet:
+        #     path: /actuator/health  # Update this based on your app's health endpoint
+        #     port: 8080
+        #   initialDelaySeconds: 10
+        #   periodSeconds: 5
+        # livenessProbe:
+        #   httpGet:
+        #     path: /actuator/health  # Update this based on your app's health endpoint
+        #     port: 8080
+        #   initialDelaySeconds: 30
+        #   periodSeconds: 10
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
